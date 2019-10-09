@@ -8,6 +8,8 @@ from random import seed
 from random import uniform
 from timeit import default_timer as timer
 
+from animate_frames import print_frames
+
 
 def parse_arguments():
     """Setup CLI interface
@@ -58,6 +60,7 @@ def run_qlearn(alpha, gamma, epsilon, num_episodes):
     env = gym.make("Taxi-v2").env
     q_table = learn_qtable(env, alpha, gamma, epsilon, num_episodes)
     evaluate_qtable(env, q_table)
+    animate_qtable(env, q_table)
 
     # TODO: save the table
     # TODO: animate something
@@ -162,6 +165,40 @@ def evaluate_qtable(env, q_table):
     print(f"Results after {num_test_episodes} episodes:")
     print(f"Average timesteps per episode: {total_epochs / num_test_episodes}")
     print(f"Average penalties per episode: {total_penalties / num_test_episodes}")
+
+
+def animate_qtable(env, q_table):
+    state = env.reset()
+    epochs, penalties, reward = 0, 0, 0
+    frames = []  # for animation
+    done = False
+
+    while not done:
+        action = np.argmax(q_table[state])
+        state, reward, done, info = env.step(action)
+
+        if reward == -10:
+            penalties += 1
+
+        # Put each rendered frame into dict for animation
+        frames.append(
+            {
+                "frame": env.render(mode="ansi"),
+                "state": state,
+                "action": action,
+                "reward": reward,
+            }
+        )
+
+        epochs += 1
+        if epochs == 10000:
+            print(f"WTF i {i} epochs {epochs}")
+            break
+
+    print(f"Timesteps taken: {epochs}")
+    print(f"Penalties incurred: {penalties}")
+
+    print_frames(frames)
 
 
 def main():
