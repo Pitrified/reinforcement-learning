@@ -23,6 +23,33 @@ def parse_arguments():
         default=40000,
         help="number of training episodes",
     )
+
+    parser.add_argument(
+        "-ip",
+        "--path_input",
+        type=str,
+        #  default="qtable_out.txt",
+        default="qtable_out.npy",
+        help="path to text file to load the table from",
+    )
+
+    parser.add_argument(
+        "-op",
+        "--path_output",
+        type=str,
+        #  default="qtable_out.txt",
+        default="qtable_out.npy",
+        help="path to text file to save the table",
+    )
+
+    parser.add_argument(
+        "-t",
+        "--show",
+        default=False,
+        action="store_true",
+        help="show just the animation, needs a valid input table",
+    )
+
     parser.add_argument("-s", "--seed", type=int, default=-1, help="random seed to use")
 
     # last line to parse the args
@@ -54,16 +81,15 @@ def setup_logger(logLevel="DEBUG"):
     # logroot.log(5, 'Exceedingly verbose debug')
 
 
-def run_qlearn(alpha, gamma, epsilon, num_episodes):
+def run_qlearn(alpha, gamma, epsilon, num_episodes, path_output):
     """Setup an environment, train and evaluate
     """
     env = gym.make("Taxi-v2").env
+
     q_table = learn_qtable(env, alpha, gamma, epsilon, num_episodes)
     evaluate_qtable(env, q_table)
     animate_qtable(env, q_table)
-
-    # TODO: save the table
-    # TODO: animate something
+    save_qtable(q_table, path_output)
 
 
 def learn_qtable(env, alpha, gamma, epsilon, num_episodes):
@@ -201,6 +227,20 @@ def animate_qtable(env, q_table):
     print_frames(frames)
 
 
+def save_qtable(q_table, path_output):
+    """Save the provided q-table in a file
+    """
+
+    #  np.savetxt(path_output, q_table)
+    np.save(path_output, q_table)
+
+
+def try_table(path_input):
+    env = gym.make("Taxi-v2").env
+    q_table = np.load(path_input)
+    animate_qtable(env, q_table)
+
+
 def main():
     setup_logger()
 
@@ -217,9 +257,16 @@ def main():
 
     #  path_input = args.path_input
     num_episodes = args.num_episodes
+    path_output = args.path_output
+    path_input = args.path_input
+    show = args.show
 
     recap = f"python3 qlearn_taxi.py"
     recap += f" --num_episodes {num_episodes}"
+    recap += f" --path_output {path_output}"
+    recap += f" --path_input {path_input}"
+    if show:
+        recap += f" --show"
     recap += f" --seed {myseed}"
 
     logmain = logging.getLogger(f"c.{__name__}.main")
@@ -233,7 +280,10 @@ def main():
     #  num_episodes = 20000
     #  num_episodes = 40000
 
-    run_qlearn(alpha, gamma, epsilon, num_episodes)
+    if show:
+        try_table(path_input)
+    else:
+        run_qlearn(alpha, gamma, epsilon, num_episodes, path_output)
 
 
 if __name__ == "__main__":
