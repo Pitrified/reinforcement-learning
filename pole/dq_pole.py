@@ -32,11 +32,11 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="")
 
     parser.add_argument(
-        "-i",
-        "--path_input",
-        type=str,
-        default="hp.jpg",
-        help="path to input image to use",
+        "-ne",
+        "--num_episodes",
+        type=int,
+        default=50,
+        help="number of training episodes",
     )
 
     parser.add_argument("-s", "--seed", type=int, default=-1, help="random seed to use")
@@ -70,7 +70,7 @@ def setup_logger(logLevel="DEBUG"):
     # logroot.log(5, 'Exceedingly verbose debug')
 
 
-def run_dq_pole():
+def run_dq_pole(num_episodes):
     logg = logging.getLogger(f"c.{__name__}.run_dq_pole")
     logg.debug(f"Start run_dq_pole")
 
@@ -80,6 +80,7 @@ def run_dq_pole():
 
     # if gpu is to be used
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logg.debug(f"Using {device} as device")
 
     #  show_frame(env)
 
@@ -116,7 +117,7 @@ def run_dq_pole():
     # observe the next screen and the reward (always 1), and optimize our model
     # once. When the episode ends (our model fails), we restart the loop.
 
-    num_episodes = 50
+    #  num_episodes = 50
     episode_durations = []
 
     for i_episode in range(num_episodes):
@@ -127,7 +128,16 @@ def run_dq_pole():
         state = current_screen - last_screen
         for t in count():
             # Select and perform an action
-            action = select_action(state, n_actions, steps_done, device, policy_net, EPS_START, EPS_END, EPS_DECAY)
+            action = select_action(
+                state,
+                n_actions,
+                steps_done,
+                device,
+                policy_net,
+                EPS_START,
+                EPS_END,
+                EPS_DECAY,
+            )
             _, reward, done, _ = env.step(action.item())
             reward = torch.tensor([reward], device=device)
 
@@ -146,7 +156,9 @@ def run_dq_pole():
             state = next_state
 
             # Perform one step of the optimization (on the target network)
-            optimize_model(BATCH_SIZE, memory, device, policy_net, target_net, GAMMA, optimizer)
+            optimize_model(
+                BATCH_SIZE, memory, device, policy_net, target_net, GAMMA, optimizer
+            )
             if done:
                 episode_durations.append(t + 1)
                 plot_durations(episode_durations)
@@ -164,13 +176,14 @@ def run_dq_pole():
     # gently close the env, avoid sys.meta_path undefined
     env.close()
 
+
 def plot_durations(episode_durations):
     plt.figure(2)
     plt.clf()
     durations_t = torch.tensor(episode_durations, dtype=torch.float)
-    plt.title('Training...')
-    plt.xlabel('Episode')
-    plt.ylabel('Duration')
+    plt.title("Training...")
+    plt.xlabel("Episode")
+    plt.ylabel("Duration")
     plt.plot(durations_t.numpy())
     # Take 100 episode averages and plot them too
     if len(durations_t) >= 100:
@@ -180,7 +193,10 @@ def plot_durations(episode_durations):
 
     plt.pause(0.001)  # pause a bit so that plots are updated
 
-def select_action(state, n_actions, steps_done, device, policy_net, EPS_START, EPS_END, EPS_DECAY):
+
+def select_action(
+    state, n_actions, steps_done, device, policy_net, EPS_START, EPS_END, EPS_DECAY
+):
     # will select an action accordingly to an epsilon greedy policy. Simply
     # put, we’ll sometimes use our model for choosing the action, and sometimes
     # we’ll just sample one uniformly. The probability of choosing a random
@@ -203,7 +219,9 @@ def select_action(state, n_actions, steps_done, device, policy_net, EPS_START, E
         )
 
 
-def optimize_model(BATCH_SIZE, memory, device, policy_net, target_net, GAMMA, optimizer):
+def optimize_model(
+    BATCH_SIZE, memory, device, policy_net, target_net, GAMMA, optimizer
+):
     # performs a single step of the optimization. It first samples a batch,
     # concatenates all the tensors into a single one, computes Q(st,at) and
     # V(st+1)=maxaQ(st+1,a), and combines them into our loss. By defition we
@@ -329,16 +347,16 @@ def main():
     seed(myseed)
     np.random.seed(myseed)
 
-    path_input = args.path_input
+    num_episodes = args.num_episodes
 
     recap = f"python3 dq_pole.py"
-    recap += f" --path_input {path_input}"
+    recap += f" --num_episodes {num_episodes}"
     recap += f" --seed {myseed}"
 
     logmain = logging.getLogger(f"{__name__}.main")
     logmain.info(recap)
 
-    run_dq_pole()
+    run_dq_pole(num_episodes)
 
 
 if __name__ == "__main__":

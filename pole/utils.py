@@ -35,12 +35,13 @@ class ReplayMemory(object):
     def __len__(self):
         return len(self.memory)
 
+
 class DQN(nn.Module):
-# a convolutional neural network that takes in the difference between the
-# current and previous screen patches. It has two outputs, representing
-# Q(s,left) and Q(s,right) (where s is the input to the network). In effect,
-# the network is trying to predict the expected return of taking each action
-# given the current input.
+    # a convolutional neural network that takes in the difference between the
+    # current and previous screen patches. It has two outputs, representing
+    # Q(s,left) and Q(s,right) (where s is the input to the network). In effect,
+    # the network is trying to predict the expected return of taking each action
+    # given the current input.
 
     def __init__(self, h, w, outputs):
         super(DQN, self).__init__()
@@ -53,8 +54,9 @@ class DQN(nn.Module):
 
         # Number of Linear input connections depends on output of conv2d layers
         # and therefore the input image size, so compute it.
-        def conv2d_size_out(size, kernel_size = 5, stride = 2):
-            return (size - (kernel_size - 1) - 1) // stride  + 1
+        def conv2d_size_out(size, kernel_size=5, stride=2):
+            return (size - (kernel_size - 1) - 1) // stride + 1
+
         convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(w)))
         convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(h)))
         linear_input_size = convw * convh * 32
