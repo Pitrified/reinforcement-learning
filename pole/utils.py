@@ -1,5 +1,7 @@
 from collections import namedtuple
+import random
 import torch.nn as nn
+import torch.nn.functional as F
 
 Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
 # a named tuple representing a single transition in our environment. It

@@ -110,7 +110,6 @@ def run_dq_pole():
     memory = ReplayMemory(10000)
 
     steps_done = 0
-    # XXX check that select_action lo aumenta davvero
 
     # main training loop. At the beginning we reset the environment and
     # initialize the state Tensor. Then, we sample an action, execute it,
@@ -118,6 +117,8 @@ def run_dq_pole():
     # once. When the episode ends (our model fails), we restart the loop.
 
     num_episodes = 50
+    episode_durations = []
+
     for i_episode in range(num_episodes):
         # Initialize the environment and state
         env.reset()
@@ -126,7 +127,7 @@ def run_dq_pole():
         state = current_screen - last_screen
         for t in count():
             # Select and perform an action
-            action = select_action(state, n_actions, steps_done, device, EPS_START, EPS_END, EPS_DECAY)
+            action = select_action(state, n_actions, steps_done, device, policy_net, EPS_START, EPS_END, EPS_DECAY)
             _, reward, done, _ = env.step(action.item())
             reward = torch.tensor([reward], device=device)
 
@@ -145,10 +146,10 @@ def run_dq_pole():
             state = next_state
 
             # Perform one step of the optimization (on the target network)
-            optimize_model(BATCH_SIZE, memory)
+            optimize_model(BATCH_SIZE, memory, device, policy_net, target_net, GAMMA, optimizer)
             if done:
                 episode_durations.append(t + 1)
-                plot_durations()
+                plot_durations(episode_durations)
                 break
         # Update the target network, copying all weights and biases in DQN
         if i_episode % TARGET_UPDATE == 0:
@@ -163,8 +164,23 @@ def run_dq_pole():
     # gently close the env, avoid sys.meta_path undefined
     env.close()
 
+def plot_durations(episode_durations):
+    plt.figure(2)
+    plt.clf()
+    durations_t = torch.tensor(episode_durations, dtype=torch.float)
+    plt.title('Training...')
+    plt.xlabel('Episode')
+    plt.ylabel('Duration')
+    plt.plot(durations_t.numpy())
+    # Take 100 episode averages and plot them too
+    if len(durations_t) >= 100:
+        means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
+        means = torch.cat((torch.zeros(99), means))
+        plt.plot(means.numpy())
 
-def select_action(state, n_actions, steps_done, device, EPS_START, EPS_END, EPS_DECAY):
+    plt.pause(0.001)  # pause a bit so that plots are updated
+
+def select_action(state, n_actions, steps_done, device, policy_net, EPS_START, EPS_END, EPS_DECAY):
     # will select an action accordingly to an epsilon greedy policy. Simply
     # put, we’ll sometimes use our model for choosing the action, and sometimes
     # we’ll just sample one uniformly. The probability of choosing a random
@@ -187,7 +203,7 @@ def select_action(state, n_actions, steps_done, device, EPS_START, EPS_END, EPS_
         )
 
 
-def optimize_model(BATCH_SIZE, memory):
+def optimize_model(BATCH_SIZE, memory, device, policy_net, target_net, GAMMA, optimizer):
     # performs a single step of the optimization. It first samples a batch,
     # concatenates all the tensors into a single one, computes Q(st,at) and
     # V(st+1)=maxaQ(st+1,a), and combines them into our loss. By defition we
@@ -210,7 +226,8 @@ def optimize_model(BATCH_SIZE, memory):
     non_final_mask = torch.tensor(
         tuple(map(lambda s: s is not None, batch.next_state)),
         device=device,
-        dtype=torch.uint8,
+        #  dtype=torch.uint8,
+        dtype=torch.bool,
     )
     non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
     state_batch = torch.cat(batch.state)
