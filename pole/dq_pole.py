@@ -169,12 +169,10 @@ def run_dq_pole(num_episodes):
 
     print("Complete")
     env.render()
+    # remember to close the env, avoid sys.meta_path undefined
     env.close()
     plt.ioff()
     plt.show()
-
-    # gently close the env, avoid sys.meta_path undefined
-    env.close()
 
 
 def plot_durations(episode_durations):
@@ -306,10 +304,12 @@ def get_screen(env, device):
     # Returned screen requested by gym is 400x600x3, but is sometimes larger
     # such as 800x1200x3. Transpose it into torch order (CHW).
     screen = env.render(mode="rgb_array").transpose((2, 0, 1))
+
     # Cart is in the lower half, so strip off the top and bottom of the screen
     _, screen_height, screen_width = screen.shape
     screen = screen[:, int(screen_height * 0.4) : int(screen_height * 0.8)]
     view_width = int(screen_width * 0.6)
+
     cart_location = get_cart_location(screen_width, env)
     if cart_location < view_width // 2:
         slice_range = slice(view_width)
@@ -319,6 +319,7 @@ def get_screen(env, device):
         slice_range = slice(
             cart_location - view_width // 2, cart_location + view_width // 2
         )
+
     # Strip off the edges, so that we have a square image centered on a cart
     screen = screen[:, :, slice_range]
     # Convert to float, rescale, convert to torch tensor
@@ -353,7 +354,7 @@ def main():
     recap += f" --num_episodes {num_episodes}"
     recap += f" --seed {myseed}"
 
-    logmain = logging.getLogger(f"{__name__}.main")
+    logmain = logging.getLogger(f"c.{__name__}.main")
     logmain.info(recap)
 
     run_dq_pole(num_episodes)
