@@ -84,7 +84,6 @@ def setup_logger(logLevel="DEBUG"):
 def run_qlearn(alpha, gamma, epsilon, num_episodes, path_output):
     """Setup an environment, train and evaluate
     """
-    #  env = gym.make("Taxi-v2").env
     env = gym.make("Taxi-v3").env
 
     q_table = learn_qtable(env, alpha, gamma, epsilon, num_episodes)
@@ -237,7 +236,6 @@ def save_qtable(q_table, path_output):
 
 
 def try_table(path_input):
-    #  env = gym.make("Taxi-v2").env
     env = gym.make("Taxi-v3").env
     q_table = np.load(path_input)
     animate_qtable(env, q_table)
