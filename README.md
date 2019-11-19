@@ -1,1 +1,1 @@
-Experiments with reinorcement learning
+Experiments with reinforcement learning
