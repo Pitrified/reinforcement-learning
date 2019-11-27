@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 from timeit import default_timer as timer
 
-from ..rl_utils.replay_memory import ReplayBuffer
+from rl_utils.replay_memory import ReplayBuffer
 
 """
 From 
