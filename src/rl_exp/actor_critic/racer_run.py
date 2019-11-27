@@ -2,6 +2,9 @@ import argparse
 import logging
 
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 from random import seed as rseed
 from timeit import default_timer as timer
@@ -129,10 +132,13 @@ def run_racer_run(args):
     state_size = 9
     logg.debug(f"State Space {obs_space}")
 
+    random_seed = args.rand_seed
+
     agent = Agent(
         state_size,
         action_size,
         random_seed,
+        device,
         LR_ACTOR,
         LR_CRITIC,
         BUFFER_SIZE,

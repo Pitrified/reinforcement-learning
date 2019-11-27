@@ -10,7 +10,8 @@ from timeit import default_timer as timer
 
 from models import Actor
 from models import Critic
-from rl_utils.noise_process import OUNoise
+from rl_exp.rl_utils.noise_process import OUNoise
+from rl_exp.rl_utils.replay_memory import ReplayBuffer
 
 """
 From
@@ -27,6 +28,7 @@ class Agent:
         state_size,
         action_size,
         random_seed,
+        device,
         LR_ACTOR,
         LR_CRITIC,
         BUFFER_SIZE,
@@ -45,7 +47,8 @@ class Agent:
         """
         self.state_size = state_size
         self.action_size = action_size
-        self.seed = random.seed(random_seed)
+        self.seed = random_seed
+        self.device = device
 
         self.LR_ACTOR = LR_ACTOR
         self.LR_CRITIC = LR_CRITIC
@@ -56,22 +59,36 @@ class Agent:
         self.TAU = TAU
 
         # Actor Network (w/ Target Network)
-        self.actor_local = Actor(state_size, action_size, random_seed).to(device)
-        self.actor_target = Actor(state_size, action_size, random_seed).to(device)
-        self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.LR_ACTOR)
+        self.actor_local = Actor(self.state_size, self.action_size, self.seed).to(
+            self.device
+        )
+        self.actor_target = Actor(self.state_size, self.action_size, self.seed).to(
+            self.device
+        )
+        self.actor_optimizer = optim.Adam(
+            self.actor_local.parameters(), lr=self.LR_ACTOR
+        )
 
         # Critic Network (w/ Target Network)
-        self.critic_local = Critic(state_size, action_size, random_seed).to(device)
-        self.critic_target = Critic(state_size, action_size, random_seed).to(device)
+        self.critic_local = Critic(self.state_size, self.action_size, self.seed).to(
+            self.device
+        )
+        self.critic_target = Critic(self.state_size, self.action_size, self.seed).to(
+            self.device
+        )
         self.critic_optimizer = optim.Adam(
-            self.critic_local.parameters(), lr=self.LR_CRITIC, weight_decay=self.WEIGHT_DECAY
+            self.critic_local.parameters(),
+            lr=self.LR_CRITIC,
+            weight_decay=self.WEIGHT_DECAY,
         )
 
         # Noise process
-        self.noise = OUNoise(action_size, random_seed)
+        self.noise = OUNoise(self.action_size, self.seed)
 
         # Replay memory
-        self.memory = ReplayBuffer(action_size, self.BUFFER_SIZE, self.BATCH_SIZE, random_seed)
+        self.memory = ReplayBuffer(
+            self.action_size, self.BUFFER_SIZE, self.BATCH_SIZE, self.seed, self.device
+        )
 
     def step(self, state, action, reward, next_state, done):
         """Save experience in replay memory, and use random sample from buffer to learn."""
@@ -85,7 +102,7 @@ class Agent:
 
     def act(self, state, add_noise=True):
         """Returns actions for given state as per current policy."""
-        state = torch.from_numpy(state).float().to(device)
+        state = torch.from_numpy(state).float().to(self.device)
         self.actor_local.eval()
         with torch.no_grad():
             action = self.actor_local(state).cpu().data.numpy()
