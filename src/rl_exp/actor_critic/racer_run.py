@@ -1,6 +1,5 @@
 import argparse
 import logging
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -8,6 +7,7 @@ import torch.nn.functional as F
 
 from random import seed as rseed
 from timeit import default_timer as timer
+from collections import deque
 
 from racer_agent import Agent
 import gym
@@ -94,6 +94,47 @@ def setup_env():
     return args
 
 
+def train_agent(env, agent, num_episodes, max_t, model_file_template):
+    """
+    """
+    actor_file = model_file_template.format("actor")
+    critic_file = model_file_template.format("critic")
+
+    scores_deque = deque(maxlen=100)
+    scores = []
+    max_score = -np.Inf
+    for i_episode in range(1, num_episodes + 1):
+        state = env.reset()
+        agent.reset()
+        score = 0
+        for t in range(max_t):
+            action = agent.act(state)
+            next_state, reward, done, _ = env.step(action)
+            agent.step(state, action, reward, next_state, done)
+            state = next_state
+            score += reward
+            if done:
+                break
+        scores_deque.append(score)
+        scores.append(score)
+        print(
+            "\rEpisode {}\tAverage Score: {:.2f}\tScore: {:.2f}".format(
+                i_episode, np.mean(scores_deque), score
+            ),
+            end="",
+        )
+        if i_episode % 100 == 0:
+            torch.save(agent.actor_local.state_dict(), "checkpoint_actor.pth")
+            torch.save(agent.critic_local.state_dict(), "checkpoint_critic.pth")
+            print(
+                "\rEpisode {}\tAverage Score: {:.2f}".format(
+                    i_episode, np.mean(scores_deque)
+                )
+            )
+
+    return scores
+
+
 def run_racer_run(args):
     """
     """
@@ -125,14 +166,19 @@ def run_racer_run(args):
     )
 
     act_space = racer_env.action_space
-    action_size = 9
     logg.debug(f"Action Space {act_space}")
+    logg.debug(f"Action Space {act_space.shape}")
+    logg.debug(f"Action Space {act_space.nvec}")
+    action_size = np.prod(act_space.nvec)
 
     obs_space = racer_env.observation_space
-    state_size = 9
     logg.debug(f"State Space {obs_space}")
+    logg.debug(f"State Space {obs_space.shape}")
+    state_size = obs_space.shape[0]
 
     random_seed = args.rand_seed
+
+    model_file_template = "checkpoint_{}.pth"
 
     agent = Agent(
         state_size,
@@ -147,6 +193,10 @@ def run_racer_run(args):
         GAMMA,
         TAU,
     )
+
+    num_episodes = 2000
+    max_t = 700
+    scores = train_agent(racer_env, agent, num_episodes, max_t, model_file_template)
 
 
 if __name__ == "__main__":
