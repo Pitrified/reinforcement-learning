@@ -10,6 +10,9 @@ from timeit import default_timer as timer
 class ReplayBuffer:
     """Fixed-size buffer to store experience tuples.
 
+    Stored as (state, action, reward, next_state, done)
+
+    From
     https://github.com/abhinavsagar/Reinforcement-Learning-Tutorial/blob/master/ddpg%20walker/ddpg_agent.py
     """
 
@@ -31,7 +34,10 @@ class ReplayBuffer:
         self.device = device
 
     def add(self, state, action, reward, next_state, done):
-        """Add a new experience to memory."""
+        """Add a new experience to memory.
+
+        store (state, action, reward, next_state, done)
+        """
         e = self.experience(state, action, reward, next_state, done)
         self.memory.append(e)
 
