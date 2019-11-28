@@ -209,7 +209,8 @@ def run_racer_run(args):
     dir_step = 3
     #  speed_step = 0.5
     speed_step = 0.3
-    malus_standing_still = -0.5
+    #  malus_standing_still = -0.5
+    malus_standing_still = -1
     reset_map = True
 
     #  mode = "console"
