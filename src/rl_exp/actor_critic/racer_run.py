@@ -9,9 +9,11 @@ from random import seed as rseed
 from timeit import default_timer as timer
 from collections import deque
 
-from racer_agent import Agent
 import gym
 import gym_racer
+
+from racer_agent import Agent
+from rl_exp.rl_utils.plots import plot_scores
 
 
 def parse_arguments():
@@ -99,19 +101,30 @@ def setup_env():
 def train_agent(env, agent, num_episodes, max_t, model_file_template, mode):
     """
     """
-    actor_file = model_file_template.format("actor")
-    critic_file = model_file_template.format("critic")
+    actor_file_check = model_file_template.format("checkpoint", "actor")
+    critic_file_check = model_file_template.format("checkpoint", "critic")
+    actor_file_best = model_file_template.format("best", "actor")
+    critic_file_best = model_file_template.format("best", "critic")
 
     action_cutoff = 0.4
     show_rate = 10
 
     scores_deque = deque(maxlen=show_rate)
     scores = []
+    scores_moving_average = []
     max_score = -np.Inf
+    print_info = False
+
     for i_episode in range(1, num_episodes + 1):
         state = env.reset()
         agent.reset()
         score = 0
+
+        # set human mode so that the next training will be rendered
+        if i_episode % show_rate == 0:
+            mode = "human"
+            print_info = True
+
         for t in range(max_t):
             action = agent.act(state)
 
@@ -143,23 +156,31 @@ def train_agent(env, agent, num_episodes, max_t, model_file_template, mode):
 
         scores_deque.append(score)
         scores.append(score)
+        scores_moving_average.append(np.mean(scores_deque))
         print(
-            "\rEpisode {:05d} Average Score: {:08.2f} Score: {:08.2f} survived {:03d}".format(
-                i_episode, np.mean(scores_deque), score, t + 1
+            "\rEpisode {:< 5d} Average over {} ep: {:< 9.0f} Score: {:< 9.0f} survived {:< 5d}".format(
+                i_episode, show_rate, scores_moving_average[-1], score, t + 1
             ),
             end="",
         )
+        plot_scores(scores)
+        plot_scores(scores_moving_average, clear_plot=False)
 
-        mode = "nothing"
-        if i_episode % show_rate == 0:
-            torch.save(agent.actor_local.state_dict(), "checkpoint_actor.pth")
-            torch.save(agent.critic_local.state_dict(), "checkpoint_critic.pth")
-            print(
-                "\rEpisode {:05d} Average Score: {:08.2f} Score: {:08.2f} survived {:03d}".format(
-                    i_episode, np.mean(scores_deque), score, t + 1
-                )
-            )
-            mode = "human"
+        if score > max_score:
+            print(f"\nNew best found {score}")
+            max_score = score
+            torch.save(agent.actor_local.state_dict(), actor_file_best)
+            torch.save(agent.critic_local.state_dict(), critic_file_best)
+
+        if print_info:
+            torch.save(agent.actor_local.state_dict(), actor_file_check)
+            torch.save(agent.critic_local.state_dict(), critic_file_check)
+
+            # MAYBE should clear the line and print batch related info
+            print()
+
+            mode = "nothing"
+            print_info = False
 
     return scores
 
@@ -186,7 +207,11 @@ def run_racer_run(args):
 
     #  dir_step = 1
     dir_step = 3
-    speed_step = 0.5
+    #  speed_step = 0.5
+    speed_step = 0.3
+    malus_standing_still = -0.5
+    reset_map = True
+
     #  mode = "console"
     mode = "human"
     sat = "lidar"
@@ -195,10 +220,13 @@ def run_racer_run(args):
     sensor_array_params["ray_step"] = 10
     sensor_array_params["ray_sensors_per_ray"] = 20
     sensor_array_params["ray_max_angle"] = 80
+
     racer_env = gym.make(
         "racer-v0",
         dir_step=dir_step,
         speed_step=speed_step,
+        malus_standing_still=malus_standing_still,
+        reset_map=reset_map,
         sensor_array_type=sat,
         render_mode=mode,
         sensor_array_params=sensor_array_params,
@@ -217,7 +245,7 @@ def run_racer_run(args):
     logg.debug(f"State Space {obs_space.shape}")
     state_size = obs_space.shape[0]
 
-    model_file_template = "checkpoint_{}.pth"
+    model_file_template = "{}_{}.pth"
 
     agent = Agent(
         state_size,
@@ -232,8 +260,8 @@ def run_racer_run(args):
         TAU,
     )
 
-    num_episodes = 2000
-    max_t = 700
+    num_episodes = 20000
+    max_t = 1000
     scores = train_agent(
         racer_env, agent, num_episodes, max_t, model_file_template, mode
     )
