@@ -28,17 +28,15 @@ class Actor(nn.Module):
     Build an actor (policy) network that maps states -> actions
     """
 
-    def __init__(self, state_size, action_size, seed, fc1_units=256):
+    def __init__(self, state_size, action_size, fc1_units=256):
         """Initialize parameters and build model.
         Params
         ======
             state_size (int): Dimension of each state
             action_size (int): Dimension of each action
-            seed (int): Random seed
             fc1_units (int): Number of nodes in the first hidden layer
         """
         super().__init__()
-        self.seed = torch.manual_seed(seed)
         self.fc1 = nn.Linear(state_size, fc1_units)
         self.fc2 = nn.Linear(fc1_units, action_size)
         self.reset_parameters()
@@ -63,7 +61,6 @@ class Critic(nn.Module):
         self,
         state_size,
         action_size,
-        seed,
         fcs1_units=256,
         fc2_units=256,
         fc3_units=128,
@@ -73,13 +70,11 @@ class Critic(nn.Module):
         ======
             state_size (int): Dimension of each state
             action_size (int): Dimension of each action
-            seed (int): Random seed
             fcs1_units (int): Number of nodes in the state hidden layer
             fc2_units (int): Number of nodes in the second hidden layer
             fc3_units (int): Number of nodes in the third hidden layer
         """
         super().__init__()
-        self.seed = torch.manual_seed(seed)
         # the first layer goes from state to magic
         self.fcs1 = nn.Linear(state_size, fcs1_units)
         # in the second layer the action is concatenated to the magic

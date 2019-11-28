@@ -1,11 +1,10 @@
 import logging
-
 import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-from random import seed as rseed
+from random import randint
 from timeit import default_timer as timer
 
 from models import Actor
@@ -27,7 +26,7 @@ class Agent:
         self,
         state_size,
         action_size,
-        random_seed,
+        #  random_seed,
         device,
         LR_ACTOR,
         LR_CRITIC,
@@ -43,11 +42,11 @@ class Agent:
         ======
             state_size (int): dimension of each state
             action_size (int): dimension of each action
-            random_seed (int): random seed
+            #  random_seed (int): random seed
         """
         self.state_size = state_size
         self.action_size = action_size
-        self.seed = random_seed
+        #  self.seed = random_seed
         self.device = device
 
         self.LR_ACTOR = LR_ACTOR
@@ -59,23 +58,15 @@ class Agent:
         self.TAU = TAU
 
         # Actor Network (w/ Target Network)
-        self.actor_local = Actor(self.state_size, self.action_size, self.seed).to(
-            self.device
-        )
-        self.actor_target = Actor(self.state_size, self.action_size, self.seed).to(
-            self.device
-        )
+        self.actor_local = Actor(self.state_size, self.action_size).to(self.device)
+        self.actor_target = Actor(self.state_size, self.action_size).to(self.device)
         self.actor_optimizer = optim.Adam(
             self.actor_local.parameters(), lr=self.LR_ACTOR
         )
 
         # Critic Network (w/ Target Network)
-        self.critic_local = Critic(self.state_size, self.action_size, self.seed).to(
-            self.device
-        )
-        self.critic_target = Critic(self.state_size, self.action_size, self.seed).to(
-            self.device
-        )
+        self.critic_local = Critic(self.state_size, self.action_size).to(self.device)
+        self.critic_target = Critic(self.state_size, self.action_size).to(self.device)
         self.critic_optimizer = optim.Adam(
             self.critic_local.parameters(),
             lr=self.LR_CRITIC,
@@ -83,11 +74,11 @@ class Agent:
         )
 
         # Noise process
-        self.noise = OUNoise(self.action_size, self.seed)
+        self.noise = OUNoise(self.action_size)
 
         # Replay memory
         self.memory = ReplayBuffer(
-            self.action_size, self.BUFFER_SIZE, self.BATCH_SIZE, self.seed, self.device
+            self.action_size, self.BUFFER_SIZE, self.BATCH_SIZE, self.device,
         )
 
     def step(self, state, action, reward, next_state, done):

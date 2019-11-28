@@ -76,8 +76,10 @@ def setup_env():
         myseed = int(timer() * 1e9 % 2 ** 32)
     else:
         myseed = args.rand_seed
+
     rseed(myseed)
     np.random.seed(myseed)
+    torch.manual_seed(myseed)
 
     # build command string to repeat this run
     # FIXME if an option is a flag this does not work, sorry
@@ -101,8 +103,9 @@ def train_agent(env, agent, num_episodes, max_t, model_file_template, mode):
     critic_file = model_file_template.format("critic")
 
     action_cutoff = 0.4
+    show_rate = 10
 
-    scores_deque = deque(maxlen=100)
+    scores_deque = deque(maxlen=show_rate)
     scores = []
     max_score = -np.Inf
     for i_episode in range(1, num_episodes + 1):
@@ -128,7 +131,8 @@ def train_agent(env, agent, num_episodes, max_t, model_file_template, mode):
             next_state, reward, done, _ = env.step(disc_action)
 
             # render the environment
-            env.render(mode=mode, reward=reward)
+            if mode != "nothing":
+                env.render(mode=mode, reward=reward)
             #  print(f"step {t} action {action} disc_action {disc_action} reward {reward}")
 
             agent.step(state, action, reward, next_state, done)
@@ -136,22 +140,26 @@ def train_agent(env, agent, num_episodes, max_t, model_file_template, mode):
             score += reward
             if done:
                 break
+
         scores_deque.append(score)
         scores.append(score)
         print(
-            "\rEpisode {:04d} Average Score: {:06.2f} Score: {:06.2f} survived {:04d}".format(
-                i_episode, np.mean(scores_deque), score, t
+            "\rEpisode {:05d} Average Score: {:08.2f} Score: {:08.2f} survived {:03d}".format(
+                i_episode, np.mean(scores_deque), score, t + 1
             ),
             end="",
         )
-        if i_episode % 100 == 0:
+
+        mode = "nothing"
+        if i_episode % show_rate == 0:
             torch.save(agent.actor_local.state_dict(), "checkpoint_actor.pth")
             torch.save(agent.critic_local.state_dict(), "checkpoint_critic.pth")
             print(
-                "\rEpisode {}\tAverage Score: {:.2f}".format(
-                    i_episode, np.mean(scores_deque)
+                "\rEpisode {:05d} Average Score: {:08.2f} Score: {:08.2f} survived {:03d}".format(
+                    i_episode, np.mean(scores_deque), score, t + 1
                 )
             )
+            mode = "human"
 
     return scores
 
@@ -172,21 +180,28 @@ def run_racer_run(args):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    dir_step = 1
+    ##################
+    # create the env #
+    ##################
+
+    #  dir_step = 1
+    dir_step = 3
+    speed_step = 0.5
     #  mode = "console"
     mode = "human"
     sat = "lidar"
     sensor_array_params = {}
-    sensor_array_params["ray_num"] = 7
+    sensor_array_params["ray_num"] = 10
     sensor_array_params["ray_step"] = 10
-    sensor_array_params["ray_sensors_per_ray"] = 13
-    sensor_array_params["ray_max_angle"] = 130
+    sensor_array_params["ray_sensors_per_ray"] = 20
+    sensor_array_params["ray_max_angle"] = 80
     racer_env = gym.make(
         "racer-v0",
         dir_step=dir_step,
+        speed_step=speed_step,
         sensor_array_type=sat,
         render_mode=mode,
-        #  sensor_array_params=sensor_array_params,
+        sensor_array_params=sensor_array_params,
     )
 
     act_space = racer_env.action_space
@@ -202,14 +217,11 @@ def run_racer_run(args):
     logg.debug(f"State Space {obs_space.shape}")
     state_size = obs_space.shape[0]
 
-    random_seed = args.rand_seed
-
     model_file_template = "checkpoint_{}.pth"
 
     agent = Agent(
         state_size,
         action_size,
-        random_seed,
         device,
         LR_ACTOR,
         LR_CRITIC,
@@ -222,7 +234,9 @@ def run_racer_run(args):
 
     num_episodes = 2000
     max_t = 700
-    scores = train_agent(racer_env, agent, num_episodes, max_t, model_file_template, mode)
+    scores = train_agent(
+        racer_env, agent, num_episodes, max_t, model_file_template, mode
+    )
 
 
 if __name__ == "__main__":

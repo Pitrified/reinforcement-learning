@@ -14,12 +14,11 @@ class OUNoise:
     https://en.wikipedia.org/wiki/Ornstein%E2%80%93Uhlenbeck_process
     """
 
-    def __init__(self, size, seed, mu=0.0, theta=0.15, sigma=0.2):
+    def __init__(self, size, mu=0.0, theta=0.15, sigma=0.2):
         """Initialize parameters and noise process."""
         self.mu = mu * np.ones(size)
         self.theta = theta
         self.sigma = sigma
-        self.seed = random.seed(seed)
         self.reset()
 
     def reset(self):
