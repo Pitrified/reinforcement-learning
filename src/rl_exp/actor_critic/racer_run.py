@@ -94,11 +94,13 @@ def setup_env():
     return args
 
 
-def train_agent(env, agent, num_episodes, max_t, model_file_template):
+def train_agent(env, agent, num_episodes, max_t, model_file_template, mode):
     """
     """
     actor_file = model_file_template.format("actor")
     critic_file = model_file_template.format("critic")
+
+    action_cutoff = 0.4
 
     scores_deque = deque(maxlen=100)
     scores = []
@@ -109,7 +111,26 @@ def train_agent(env, agent, num_episodes, max_t, model_file_template):
         score = 0
         for t in range(max_t):
             action = agent.act(state)
-            next_state, reward, done, _ = env.step(action)
+
+            #  next_state, reward, done, _ = env.step(action)
+            #  print(f"step {t} action {action} reward {reward}")
+
+            # discretize the actions
+            #  1) accelerate:  NOOP[0], UP[1], DOWN[2]
+            #  2) steer:  NOOP[0], LEFT[1], RIGHT[2]
+
+            #  t1 = timer()
+            disc_action = np.zeros((2,), dtype=np.uint8)
+            disc_action = np.where(action < -action_cutoff, 1, disc_action)
+            disc_action = np.where(action > action_cutoff, 2, disc_action)
+            #  t2 = timer()
+            #  print(f"time to discretize {t2-t1:.6f}")
+            next_state, reward, done, _ = env.step(disc_action)
+
+            # render the environment
+            env.render(mode=mode, reward=reward)
+            #  print(f"step {t} action {action} disc_action {disc_action} reward {reward}")
+
             agent.step(state, action, reward, next_state, done)
             state = next_state
             score += reward
@@ -118,8 +139,8 @@ def train_agent(env, agent, num_episodes, max_t, model_file_template):
         scores_deque.append(score)
         scores.append(score)
         print(
-            "\rEpisode {}\tAverage Score: {:.2f}\tScore: {:.2f}".format(
-                i_episode, np.mean(scores_deque), score
+            "\rEpisode {:04d} Average Score: {:06.2f} Score: {:06.2f} survived {:04d}".format(
+                i_episode, np.mean(scores_deque), score, t
             ),
             end="",
         )
@@ -151,7 +172,9 @@ def run_racer_run(args):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    mode = "console"
+    dir_step = 1
+    #  mode = "console"
+    mode = "human"
     sat = "lidar"
     sensor_array_params = {}
     sensor_array_params["ray_num"] = 7
@@ -160,16 +183,19 @@ def run_racer_run(args):
     sensor_array_params["ray_max_angle"] = 130
     racer_env = gym.make(
         "racer-v0",
+        dir_step=dir_step,
         sensor_array_type=sat,
         render_mode=mode,
-        sensor_array_params=sensor_array_params,
+        #  sensor_array_params=sensor_array_params,
     )
 
     act_space = racer_env.action_space
     logg.debug(f"Action Space {act_space}")
     logg.debug(f"Action Space {act_space.shape}")
     logg.debug(f"Action Space {act_space.nvec}")
-    action_size = np.prod(act_space.nvec)
+    #  action_size = np.prod(act_space.nvec)
+    # instead of a (9,) vector we use just (2,)
+    action_size = 2
 
     obs_space = racer_env.observation_space
     logg.debug(f"State Space {obs_space}")
@@ -196,7 +222,7 @@ def run_racer_run(args):
 
     num_episodes = 2000
     max_t = 700
-    scores = train_agent(racer_env, agent, num_episodes, max_t, model_file_template)
+    scores = train_agent(racer_env, agent, num_episodes, max_t, model_file_template, mode)
 
 
 if __name__ == "__main__":
